@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SensX25 Live</title>
+<style>
+  body { font: 16px system-ui; max-width: 720px; margin: 28px auto; padding: 0 16px; background: #f6f7f9; color: #17202a; }
+  img { width: 100%; max-width: 580px; background: white; border-radius: 12px; }
+  button { font: inherit; padding: 10px 18px; margin-right: 8px; cursor: pointer; }
+  #status { min-height: 3em; overflow-wrap: anywhere; }
+  small { display: block; margin-top: 16px; }
+</style>
+<h1>SensX25 Live</h1>
+<p>
+  <button onclick="setMode(0)">ADC mode</button>
+  <button onclick="setMode(1)">Pressure mode</button>
+</p>
+<p id="status">Connecting...</p>
+<img id="heatmap" alt="Live 5 by 5 sensor heatmap" hidden>
+<small>Mode changes are saved in the sensor. Values are sensor readings, not calibrated pressure units.</small>
+<script>
+  let sending = false;
+  let changing = false;
+  let holdUntil = 0;
+  const status = document.getElementById('status');
+  const buttons = [...document.querySelectorAll('button')];
+
+  async function setMode(mode) {
+    sending = true;
+    buttons.forEach(button => button.disabled = true);
+    try {
+      const response = await fetch('/sensor/mode?mode=' + mode, {method: 'POST'});
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const result = await response.json();
+      status.textContent = result.accepted ? 'Mode request sent...' : result.message;
+      holdUntil = Date.now() + 1500;
+    } catch (error) {
+      status.textContent = 'Mode request failed: ' + error;
+    } finally {
+      sending = false;
+    }
+  }
+
+  async function refresh() {
+    try {
+      const response = await fetch('/sensor/frame', {cache: 'no-store'});
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const data = await response.json();
+      changing = data.pending;
+      if (Date.now() >= holdUntil) status.textContent = data.status;
+      if (data.image) {
+        const image = document.getElementById('heatmap');
+        image.src = 'data:image/png;base64,' + data.image;
+        image.hidden = false;
+      }
+      buttons.forEach(button => button.disabled = sending || changing);
+    } catch (error) {
+      status.textContent = 'Connection lost: ' + error;
+    }
+    setTimeout(refresh, 250);
+  }
+  refresh();
+</script>
+</html>

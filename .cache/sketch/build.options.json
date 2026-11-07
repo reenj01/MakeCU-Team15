@@ -1,0 +1,9 @@
+{
+  "additionalFiles": "",
+  "compiler.optimization_flags": "",
+  "customBuildProperties": "",
+  "fqbn": "arduino:zephyr:unoq:wait_linux_boot=app",
+  "hardwareFolders": "/home/arduino/.arduino15/internal/arduino_zephyr_1.1.0_9d917e296ff4622f,/home/arduino/.arduino15/internal/arduino_zephyr_1.1.0_9d917e296ff4622f",
+  "otherLibrariesFolders": "/home/arduino/Arduino/libraries",
+  "sketchLocation": "/home/arduino/ArduinoApps/sensx25live/sketch"
+}

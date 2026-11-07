@@ -1,0 +1,128 @@
+name: sensx25live
+services:
+  main:
+    device_cgroup_rules:
+      - c 226:* rmw
+      - c 250:* rmw
+      - c 504:* rmw
+      - c 81:* rmw
+      - c 116:* rmw
+      - c 10:261 rmw
+    entrypoint:
+      - /run.sh
+    environment:
+      APP_HOME: /home/arduino/ArduinoApps/sensx25live
+      BOARD_NAME: unoq
+      CONFIGURED_CARRIERS: ""
+      HOST_DSP_INSTALLATION_PATH: ""
+      HOST_IP: 10.206.148.76
+      MODELS_PATH: /var/lib/arduino-app-cli/models
+      VIDEO_DEVICE: ""
+      XDG_RUNTIME_DIR: /run/user/1000
+    extra_hosts:
+      - msgpack-rpc-router=host-gateway
+    group_add:
+      - "44"
+      - "29"
+      - "991"
+      - "20"
+      - "107"
+      - "1001"
+    image: ghcr.io/arduino/app-bricks/python-apps-base:0.13.2
+    labels:
+      cc.arduino.app: "true"
+      cc.arduino.app.main: "true"
+      cc.arduino.app.path: /home/arduino/ArduinoApps/sensx25live
+    logging:
+      driver: json-file
+      options:
+        max-file: "2"
+        max-size: 5m
+    networks:
+      default: null
+    ports:
+      - mode: ingress
+        target: 7000
+        published: "7000"
+        protocol: tcp
+    user: 1000:1000
+    volumes:
+      - type: bind
+        source: /home/arduino/ArduinoApps/sensx25live
+        target: /app
+      - type: bind
+        source: /dev
+        target: /dev
+      - type: bind
+        source: /run/udev
+        target: /run/udev
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /run/user/1000/pipewire-0
+        target: /run/user/1000/pipewire-0
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /sys/firmware/devicetree/base/model
+        target: /sys/firmware/devicetree/base/model
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /dev/leds/builtin/led1_b
+        target: /dev/leds/builtin/led1_b
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /dev/leds/builtin/led1_g
+        target: /dev/leds/builtin/led1_g
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /dev/leds/builtin/led1_r
+        target: /dev/leds/builtin/led1_r
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /dev/leds/builtin/led2_b
+        target: /dev/leds/builtin/led2_b
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /dev/leds/builtin/led2_g
+        target: /dev/leds/builtin/led2_g
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /dev/leds/builtin/led2_r
+        target: /dev/leds/builtin/led2_r
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /run/arduino-router.sock
+        target: /run/arduino-router.sock
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/run/arduino-router.sock
+        target: /var/run/arduino-router.sock
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /run/arduino-cloud-connector
+        target: /run/arduino-cloud-connector
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/run/arduino-cloud-connector
+        target: /var/run/arduino-cloud-connector
+        bind:
+          create_host_path: false
+networks:
+  default:
+    name: sensx25live_default
+    labels:
+      cc.arduino.app: "true"
+      cc.arduino.app.path: /home/arduino/ArduinoApps/sensx25live

@@ -1,0 +1,78 @@
+services:
+  main:
+    image: ghcr.io/arduino/app-bricks/python-apps-base:0.13.2
+    volumes:
+    - type: bind
+      source: ${APP_HOME}
+      target: /app
+    - type: bind
+      source: /dev
+      target: /dev
+    - x-arduino-expr:{{ if pathExists "/run/udev" }}{"type":"bind","source":"/run/udev","target":"/run/udev","read_only":true,"bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/run/user/1000/pipewire-0" }}{"type":"bind","source":"/run/user/1000/pipewire-0","target":"/run/user/1000/pipewire-0","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/run/cam_server" }}{"type":"bind","source":"/run/cam_server","target":"/run/cam_server","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/usr/lib/libcamera_metadata.so.0.1.0" }}{"type":"bind","source":"/usr/lib/libcamera_metadata.so.0.1.0","target":"/usr/lib/libcamera_metadata.so.0.1.0","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/sys/firmware/devicetree/base/model" }}{"type":"bind","source":"/sys/firmware/devicetree/base/model","target":"/sys/firmware/devicetree/base/model","read_only":true,"bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/usr/share/qcom" }}{"type":"bind","source":"/usr/share/qcom","target":"/run/host-qcom","read_only":true,"bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/usr/share/hexagon-dsp" }}{"type":"bind","source":"/usr/share/hexagon-dsp","target":"/run/host-qcom","read_only":true,"bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/dev/leds/builtin/led1_b" }}{"type":"bind","source":"/dev/leds/builtin/led1_b","target":"/dev/leds/builtin/led1_b","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/dev/leds/builtin/led1_g" }}{"type":"bind","source":"/dev/leds/builtin/led1_g","target":"/dev/leds/builtin/led1_g","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/dev/leds/builtin/led1_r" }}{"type":"bind","source":"/dev/leds/builtin/led1_r","target":"/dev/leds/builtin/led1_r","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/dev/leds/builtin/led2_b" }}{"type":"bind","source":"/dev/leds/builtin/led2_b","target":"/dev/leds/builtin/led2_b","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/dev/leds/builtin/led2_g" }}{"type":"bind","source":"/dev/leds/builtin/led2_g","target":"/dev/leds/builtin/led2_g","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/dev/leds/builtin/led2_r" }}{"type":"bind","source":"/dev/leds/builtin/led2_r","target":"/dev/leds/builtin/led2_r","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/run/arduino-router" }}{"type":"bind","source":"/run/arduino-router","target":"/run/arduino-router","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/var/run/arduino-router" }}{"type":"bind","source":"/var/run/arduino-router","target":"/var/run/arduino-router","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/run/arduino-router.sock" }}{"type":"bind","source":"/run/arduino-router.sock","target":"/run/arduino-router.sock","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/var/run/arduino-router.sock" }}{"type":"bind","source":"/var/run/arduino-router.sock","target":"/var/run/arduino-router.sock","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/run/arduino-cloud-connector" }}{"type":"bind","source":"/run/arduino-cloud-connector","target":"/run/arduino-cloud-connector","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/var/run/arduino-cloud-connector" }}{"type":"bind","source":"/var/run/arduino-cloud-connector","target":"/var/run/arduino-cloud-connector","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/run/arduino-cloud-connector.sock" }}{"type":"bind","source":"/run/arduino-cloud-connector.sock","target":"/run/arduino-cloud-connector.sock","bind":{"create_host_path":false}}{{ end }}
+    - x-arduino-expr:{{ if pathExists "/var/run/arduino-cloud-connector.sock" }}{"type":"bind","source":"/var/run/arduino-cloud-connector.sock","target":"/var/run/arduino-cloud-connector.sock","bind":{"create_host_path":false}}{{ end }}
+    ports:
+    - 7000:7000
+    user: x-arduino-expr:{{ with groupID "arduino" }}1000:{{ . }}{{ else }}1000{{ end }}
+    group_add:
+    - x-arduino-expr:{{ groupID "video" }}
+    - x-arduino-expr:{{ groupID "audio" }}
+    - x-arduino-expr:{{ groupID "render" }}
+    - x-arduino-expr:{{ groupID "dialout" }}
+    - x-arduino-expr:{{ groupID "arduino-router" }}
+    - x-arduino-expr:{{ groupID "fastrpc" }}
+    - x-arduino-expr:{{ groupID "dmaheap" }}
+    - x-arduino-expr:{{ groupID "gpiod" }}
+    device_cgroup_rules:
+    - x-arduino-expr:{{ with deviceMajor "drm" }}c {{ . }}:* rmw{{ end }}
+    - x-arduino-expr:{{ with deviceMajor "dma_heap" }}c {{ . }}:* rmw{{ end }}
+    - x-arduino-expr:{{ with deviceMajor "media" }}c {{ . }}:* rmw{{ end }}
+    - x-arduino-expr:{{ with deviceMajor "video4linux" }}c {{ . }}:* rmw{{ end }}
+    - x-arduino-expr:{{ with deviceMajor "alsa" }}c {{ . }}:* rmw{{ end }}
+    - x-arduino-expr:{{ with deviceMajor "ttyUSB" }}c {{ . }}:* rmw{{ end }}
+    - x-arduino-expr:{{ with deviceMajor "ttyACM" }}c {{ . }}:* rmw{{ end }}
+    - "x-arduino-expr:{{ range deviceNumbers \"misc\" \"fastrpc-*\" }}c {{ . }} rmw{{ \"\\n\" }}{{ end }}"
+    entrypoint: /run.sh
+    extra_hosts:
+    - msgpack-rpc-router:host-gateway
+    labels:
+      cc.arduino.app: "true"
+      cc.arduino.app.main: "true"
+      cc.arduino.app.path: ${APP_HOME}
+    environment:
+      APP_HOME: ${APP_HOME}
+      BOARD_NAME: unoq
+      CONFIGURED_CARRIERS: ${CONFIGURED_CARRIERS}
+      HOST_DSP_INSTALLATION_PATH: ${HOST_DSP_INSTALLATION_PATH}
+      HOST_IP: ${HOST_IP}
+      MODELS_PATH: ${MODELS_PATH}
+      VIDEO_DEVICE: ${VIDEO_DEVICE}
+      XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR}
+    logging:
+      driver: json-file
+      options:
+        max-file: "2"
+        max-size: 5m
+networks:
+  default:
+    labels:
+      cc.arduino.app: "true"
+      cc.arduino.app.path: ${APP_HOME}
