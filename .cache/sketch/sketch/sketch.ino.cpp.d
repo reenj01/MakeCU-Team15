@@ -337,4 +337,6 @@
  /home/arduino/.arduino15/internal/Arduino_RouterBridge_0.4.4_5c166a9aa15aeb64/Arduino_RouterBridge/src/tcp/bridge_tcp_common.h \
  /home/arduino/.arduino15/internal/Arduino_RouterBridge_0.4.4_5c166a9aa15aeb64/Arduino_RouterBridge/src/tcp/tcp_server.h \
  /home/arduino/.arduino15/internal/Arduino_RouterBridge_0.4.4_5c166a9aa15aeb64/Arduino_RouterBridge/src/hci.h \
- /home/arduino/.arduino15/internal/Arduino_RouterBridge_0.4.4_5c166a9aa15aeb64/Arduino_RouterBridge/src/udp_bridge.h
+ /home/arduino/.arduino15/internal/Arduino_RouterBridge_0.4.4_5c166a9aa15aeb64/Arduino_RouterBridge/src/udp_bridge.h \
+ /home/arduino/.arduino15/internal/Servo_1.3.0_497671ba0520c8c4/Servo/src/Servo.h \
+ /home/arduino/.arduino15/internal/Servo_1.3.0_497671ba0520c8c4/Servo/src/zephyr/ServoTimers.h

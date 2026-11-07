@@ -7,6 +7,7 @@ SECTIONS
     /* Read-only data WITH relocations - will be copied to RAM by LLEXT */
     .rodata : {
         *(.rodata._ZN6zephyr7arduinoL11pinctrl_mapE)
+        *(.rodata._ZN6zephyr7arduinoL12arduino_pinsE)
         *(.rodata._ZN6zephyr7arduinoL35__pinctrl_states__device_dts_ord_17E)
         *(.rodata._ZN6zephyr7arduinoL35__pinctrl_states__device_dts_ord_30E)
         *(.rodata._ZN6zephyr7arduinoL35__pinctrl_states__device_dts_ord_34E)
@@ -72,6 +73,7 @@ SECTIONS
         *(.rodata._ZN10RpcDecoderILj1024EE12get_responseIN7arduino7msgpack6object5nil_tEEEbjRT_R8RpcError.str1.1)
         *(.rodata._ZN10RpcDecoderILj1024EE12get_responseIbEEbjRT_R8RpcError.str1.1)
         *(.rodata._ZN11BridgeClass11update_safeEv.str1.1)
+        *(.rodata._ZN11BridgeClass12provide_safeIRFbiEEEbRKN7arduino6StringEOT_.isra.0.str1.1)
         *(.rodata._ZN11BridgeClass5beginEm.str1.1)
         *(.rodata._ZN13BridgeMonitorILj512EE5_readEj.str1.1)
         *(.rodata._ZN13BridgeMonitorILj512EE5writeEPKhj.str1.1)

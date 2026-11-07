@@ -1,5 +1,6 @@
-name: SensX25 Live
+name: SensX25 Hand
 description: Live matplotlib heatmap and verified ADC / pressure mode switching
-icon: 📊
+ports: []
 bricks:
-  - arduino:web_ui
+- arduino:web_ui: {}
+icon: 📊

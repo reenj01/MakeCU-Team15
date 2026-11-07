@@ -1,7 +1,30 @@
 #include <Arduino.h>
 #line 1 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+#include <Servo.h>
 #include <Arduino_RouterBridge.h>
+#include <math.h>
 #include <string.h>
+
+constexpr int SERVO_PIN = 9;
+constexpr float MIN_ANGLE = 10, MAX_ANGLE = 170;
+constexpr float PRESSURE_MAX = 30;          // pressure 0-50 maps to 10-170 degrees
+constexpr float PRESS_THRESHOLD = 2;        // below this counts as "not pressed"
+constexpr float FILTER_TAU_S = 0.12f;       // input smoothing time constant
+constexpr float SERVO_SPEED_DPS = 150;      // max servo speed, degrees per second
+constexpr float LOCK_BAND = 2;              // steady within this many degrees -> lock
+constexpr float UNLOCK_BAND = 4;            // move beyond this from the lock -> unlock
+constexpr uint32_t LOCK_MS = 250;           // how long it must be steady to lock
+constexpr uint32_t SERVO_RELEASE_MS = 600;  // release the locked servo so it stops buzzing
+constexpr uint32_t SERVO_UPDATE_MS = 5;
+// Pulse range Servo.write() uses for 0-180 degrees.
+constexpr float MIN_PULSE_US = 544, MAX_PULSE_US = 2400;
+
+Servo servo;
+int servoSource = 0;  // 0 average, 1 peak, 2 average of non-zero cells
+bool filterReady = false, locked = false;
+float filteredAngle = MIN_ANGLE, anchorAngle = MIN_ANGLE;
+float targetAngle = MIN_ANGLE, servoAngle = MIN_ANGLE;
+uint32_t lastFilter = 0, steadySince = 0, lastServoUpdate = 0, settledSince = 0;
 
 constexpr size_t FRAME_SIZE = 53;
 uint8_t frame[FRAME_SIZE];
@@ -12,23 +35,33 @@ uint32_t sequence = 0, crcErrors = 0, lastFrame = 0, lastQuery = 0;
 bool hasFrame = false, pending = false, awaitingReply = false;
 int currentMode = -1, targetMode = -1, attempts = 0, modeError = 0;
 
-#line 13 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+#line 36 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
 uint8_t crc8(const uint8_t* data, size_t length);
-#line 23 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+#line 46 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
 uint16_t crc16(const uint8_t* data, size_t length);
-#line 33 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+#line 56 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
 void sendCommand(uint8_t function, uint16_t value);
-#line 42 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+#line 65 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
 bool setMode(int mode);
-#line 60 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+#line 83 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+bool setServoSource(int source);
+#line 89 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+float servoPressure();
+#line 102 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+void onPressureFrame();
+#line 133 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+uint16_t angleToMicros(float angle);
+#line 137 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+void updateServo();
+#line 157 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
 String snapshot();
-#line 72 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+#line 170 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
 void consumeByte(uint8_t value);
-#line 117 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+#line 216 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
 void setup();
-#line 130 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+#line 233 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
 void loop();
-#line 13 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
+#line 36 "/home/arduino/ArduinoApps/sensx25live/sketch/sketch.ino"
 uint8_t crc8(const uint8_t* data, size_t length) {
   uint8_t crc = 0;
   for (size_t i = 0; i < length; ++i) {
@@ -76,6 +109,80 @@ bool setMode(int mode) {
   return true;
 }
 
+bool setServoSource(int source) {
+  if (source < 0 || source > 2) return false;
+  servoSource = source;
+  return true;
+}
+
+float servoPressure() {
+  uint32_t sum = 0, peak = 0;
+  int pressed = 0;
+  for (int i = 0; i < 25; ++i) {
+    sum += grid[i];
+    if (grid[i] > peak) peak = grid[i];
+    if (grid[i] > 0) ++pressed;
+  }
+  if (servoSource == 1) return peak;
+  if (servoSource == 2) return pressed ? float(sum) / pressed : 0;
+  return sum / 25.0f;
+}
+
+void onPressureFrame() {
+  // Runs on every sensor frame, so the servo tracks at full sensor rate.
+  float pressure = servoPressure();
+  if (pressure < PRESS_THRESHOLD) pressure = 0;
+  float angle = MIN_ANGLE + constrain(pressure / PRESSURE_MAX, 0.0f, 1.0f) *
+                            (MAX_ANGLE - MIN_ANGLE);
+
+  uint32_t now = millis();
+  if (!filterReady) {
+    filteredAngle = angle;
+    filterReady = true;
+  } else {
+    float dt = (now - lastFilter) / 1000.0f;
+    filteredAngle += dt / (FILTER_TAU_S + dt) * (angle - filteredAngle);
+  }
+  lastFilter = now;
+  if (pressure == 0 && filteredAngle < MIN_ANGLE + 0.5f) filteredAngle = MIN_ANGLE;
+
+  // Lock the target once the input has been steady, so noise can't twitch it.
+  if (fabsf(filteredAngle - anchorAngle) > LOCK_BAND) {
+    anchorAngle = filteredAngle;
+    steadySince = now;
+  }
+  if (locked) {
+    if (fabsf(filteredAngle - targetAngle) > UNLOCK_BAND) locked = false;
+  } else if (now - steadySince >= LOCK_MS) {
+    locked = true;
+  }
+  if (!locked) targetAngle = filteredAngle;
+}
+
+uint16_t angleToMicros(float angle) {
+  return uint16_t(MIN_PULSE_US + angle * (MAX_PULSE_US - MIN_PULSE_US) / 180.0f + 0.5f);
+}
+
+void updateServo() {
+  uint32_t now = millis();
+  if (now - lastServoUpdate < SERVO_UPDATE_MS) return;
+  float dt = min((now - lastServoUpdate) / 1000.0f, 0.05f);
+  lastServoUpdate = now;
+
+  float error = targetAngle - servoAngle;
+  if (fabsf(error) > 0.05f) {
+    // Glide toward the target in sub-degree steps at a capped speed.
+    float step = SERVO_SPEED_DPS * dt;
+    servoAngle += constrain(error, -step, step);
+    if (!servo.attached()) servo.attach(SERVO_PIN);
+    servo.writeMicroseconds(angleToMicros(servoAngle));
+    settledSince = now;
+  } else if (servo.attached() && (locked || now - lastFilter > SERVO_RELEASE_MS) &&
+             now - settledSince >= SERVO_RELEASE_MS) {
+    servo.detach();
+  }
+}
+
 String snapshot() {
   // A compact CSV string keeps the RPC response small.
   String result;
@@ -85,6 +192,7 @@ String snapshot() {
   result += String(currentMode) + "," + String(pending ? 1 : 0) + ",";
   result += String(modeError) + "," + String(crcErrors);
   for (int i = 0; i < 25; ++i) result += "," + String(grid[i]);
+  result += "," + String(int(servoAngle + 0.5f)) + "," + String(locked ? 1 : 0);
   return result;
 }
 
@@ -126,6 +234,7 @@ void consumeByte(uint8_t value) {
     lastFrame = millis();
     hasFrame = true;
     used = 0;
+    if (currentMode == 1 && !pending) onPressureFrame();
   } else {
     ++crcErrors;
     --used;
@@ -137,8 +246,12 @@ void setup() {
   Bridge.begin();
   Monitor.begin(115200);
   Serial1.begin(921600);
+  servo.attach(SERVO_PIN);
+  servo.writeMicroseconds(angleToMicros(servoAngle));
+  settledSince = lastServoUpdate = millis();
   Bridge.provide_safe("sensx_snapshot", snapshot);
   Bridge.provide_safe("sensx_set_mode", setMode);
+  Bridge.provide_safe("set_servo_source", setServoSource);
 
   // Read the saved mode at startup without changing it.
   pending = true;
@@ -151,6 +264,8 @@ void loop() {
     int value = Serial1.read();
     if (value >= 0) consumeByte(uint8_t(value));
   }
+
+  updateServo();
 
   // Poll without blocking incoming sensor frames.
   if (pending && millis() - lastQuery >= 300) {

@@ -15,6 +15,15 @@
   <button onclick="setMode(0)">ADC mode</button>
   <button onclick="setMode(1)">Pressure mode</button>
 </p>
+<p>
+  <label>Servo follows (0–50 → 10–170°):
+    <select id="servoSource" onchange="setServoSource(this.value)">
+      <option value="average">Average</option>
+      <option value="peak">Peak</option>
+      <option value="nonzero">Average of non-zero cells</option>
+    </select>
+  </label>
+</p>
 <p id="status">Connecting...</p>
 <img id="heatmap" alt="Live 5 by 5 sensor heatmap" hidden>
 <small>Mode changes are saved in the sensor. Values are sensor readings, not calibrated pressure units.</small>
@@ -41,12 +50,26 @@
     }
   }
 
+  const servoSource = document.getElementById('servoSource');
+
+  async function setServoSource(source) {
+    try {
+      const response = await fetch('/servo/source?source=' + source, {method: 'POST'});
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const result = await response.json();
+      if (!result.accepted) status.textContent = result.message;
+    } catch (error) {
+      status.textContent = 'Servo source change failed: ' + error;
+    }
+  }
+
   async function refresh() {
     try {
       const response = await fetch('/sensor/frame', {cache: 'no-store'});
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const data = await response.json();
       changing = data.pending;
+      if (document.activeElement !== servoSource) servoSource.value = data.servo_source;
       if (Date.now() >= holdUntil) status.textContent = data.status;
       if (data.image) {
         const image = document.getElementById('heatmap');

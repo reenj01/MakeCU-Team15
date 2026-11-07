@@ -10,4 +10,6 @@ profiles:
       - DebugLog (0.8.4)
       - ArxTypeTraits (0.3.2)
       - ArxContainer (0.7.0)
+      - Servo (1.3.0)
+
 default_profile: default
