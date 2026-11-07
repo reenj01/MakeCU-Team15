@@ -12,6 +12,7 @@ import os
 import sys
 import threading
 import time
+from collections import deque
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -46,6 +47,10 @@ demo_active = False
 tracker = emotion.Tracker()
 sensor = threading.Lock()
 pending_gesture = None
+# Every bridge frame, not just the newest. A short press used to be overwritten
+# by the next empty frame before the screen ever saw it.
+pending_frames = deque(maxlen=400)
+last_frame_at = 0.0
 
 state = {
     "connected": False,
@@ -76,7 +81,7 @@ def to_upright(values):
 
 def on_frame(msg):
     """Called by the MCU via Bridge.notify("sensx_frame", "p0,...,p24")."""
-    global latest, frames_received
+    global latest, frames_received, last_frame_at
     try:
         values = [int(part) for part in str(msg).split(",")]
     except ValueError:
@@ -84,9 +89,25 @@ def on_frame(msg):
     if len(values) != 25:
         return
     grid = to_upright(values)
+    total, peak, pixels, _cop_row, _cop_col = emotion.features(grid)
     with sensor:
-        latest = grid
+        if demo_active:
+            return
+        latest = [row[:] for row in grid]
         frames_received += 1
+        count = frames_received
+        last_frame_at = time.time()
+        pending_frames.append((last_frame_at, latest))
+    publish_reading(
+        grid,
+        {
+            "touching": total >= emotion.NOISE_FLOOR,
+            "total": total,
+            "peak": peak,
+            "pixels_on": pixels,
+        },
+        count,
+    )
 
 
 def _publish(snapshot):
@@ -206,13 +227,21 @@ def ingest(grid, now, frames):
 
 
 def loop():
-    time.sleep(emotion.SAMPLE_DT)
+    time.sleep(0.02)
     with sensor:
-        if demo_active or latest is None:
+        if demo_active:
             return
-        grid = [row[:] for row in latest]
+        batch = list(pending_frames)
+        pending_frames.clear()
         frames = frames_received
-    ingest(grid, time.time(), frames)
+        active = tracker.active
+        quiet_for = time.time() - last_frame_at if last_frame_at else 0.0
+    for arrived, grid in batch:
+        ingest(grid, arrived, frames)
+    # Frames stopped. Feed silence so a finished press can close, but not
+    # between the 20 Hz readings while a finger is still down.
+    if not batch and active and quiet_for >= 0.08:
+        ingest([[0] * 5 for _ in range(5)], time.time(), frames)
 
 
 def run_demo(kind):
@@ -221,6 +250,7 @@ def run_demo(kind):
     try:
         with sensor:
             tracker.clear()
+            pending_frames.clear()
         clock_frames = frames_received
         for grid, hold in script:
             steps = max(1, int(round(hold / emotion.SAMPLE_DT)))

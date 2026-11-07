@@ -483,9 +483,9 @@
     let seenLine = -1;
     let typeTimer = null;
 
-    function heat(value) {
+    function heat(value, scale) {
       if (!value) return "#2a241c";
-      const t = Math.sqrt(Math.min(1, value / 2000));
+      const t = Math.sqrt(Math.min(1, value / scale));
       const r = Math.round(58 + t * 197);
       const g = Math.round(42 + t * 150);
       const b = Math.round(28 + t * 50);
@@ -513,7 +513,7 @@
       const mote = document.getElementById("mote");
       mote.dataset.emotion = emotion;
       mote.classList.toggle("thinking", !!state.thinking);
-      const load = Math.max(0, Math.min(1, (state.peak || 0) / 1800));
+      const load = Math.max(0, Math.min(1, (state.peak || 0) / 400));
       document.documentElement.style.setProperty("--load", load.toFixed(3));
 
       document.getElementById("emotion").textContent = state.thinking
@@ -526,9 +526,13 @@
       }
 
       const frame = state.grid || [];
+      let framePeak = 40;
+      frame.forEach((row) => row.forEach((value) => {
+        if (value > framePeak) framePeak = value;
+      }));
       frame.forEach((row, r) => {
         row.forEach((value, c) => {
-          cells[r * 5 + c].style.background = heat(value);
+          cells[r * 5 + c].style.background = heat(value, framePeak);
         });
       });
       document.getElementById("total").textContent = state.total ?? 0;
